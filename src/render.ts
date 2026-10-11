@@ -1,6 +1,6 @@
 import { Game, MENU, MenuRow, GAMES, MUSIC_NAMES, NAME_LEN, ROUND_CARD } from './game';
 import { World, Bomber, Bomb, FLAME_T, F_CENTER, READY_FRAMES, DROP_T, DYING_FRAMES } from './world';
-import { ARENAS, COLS, ROWS, TILE, CELLS, SOLID, BLOCK, ITEMS, cellX, cellY } from './arena';
+import { ARENAS, COLS, ROWS, TILE, CELLS, SOLID, BLOCK, ITEMS, DX, DY, cellX, cellY, idx, inside } from './arena';
 import { LEVELS } from './modes';
 import { MAX_SCORES } from './scores';
 import { HELP_PAGES, wrapText } from './help';
@@ -31,7 +31,11 @@ function drawFloor(ctx: Ctx, w: World, frame: number, ox: number, oy: number) {
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.fillRect(x, y, TILE, 4);
     }
-    if (w.belt[c] >= 0) drawBelt(ctx, x, y, w.belt[c], frame);
+    if (w.belt[c] >= 0) {
+      const from = beltFrom(w, c);
+      if (from < 0) drawBelt(ctx, x, y, w.belt[c], frame);
+      else drawBeltCorner(ctx, x, y, from, w.belt[c], frame);
+    }
     if (w.warp[c] >= 0) drawWarp(ctx, x, y, frame);
   }
 }
@@ -64,6 +68,53 @@ function drawBelt(ctx: Ctx, x: number, y: number, dir: number, frame: number) {
         const u = (k * 8 + shift + 3 - Math.abs(dv) - du + 16) % 16;
         plot(u, 7 + dv);
       }
+}
+
+/** The side a belt turning in cell c is fed from, or -1 when it runs straight. */
+function beltFrom(w: World, c: number) {
+  const d = w.belt[c];
+  for (const s of [(d + 1) % 4, (d + 3) % 4]) {
+    const x = cellX(c) + DX[s], y = cellY(c) + DY[s];
+    if (inside(x, y) && w.belt[idx(x, y)] === (s + 2) % 4) return s;
+  }
+  return -1;
+}
+
+/**
+ * A belt corner, fed from side s and running out to side d: the rails of drawBelt bent round
+ * the inner corner (u, along, turned into the angle through the bend; v, across, the radius),
+ * and its chevrons set along that bend.
+ */
+function drawBeltCorner(ctx: Ctx, x: number, y: number, s: number, d: number, frame: number) {
+  // The inner corner, and the edges running from it on the way in and the way out.
+  const kx = 8 + 8 * (DX[s] + DX[d]), ky = 8 + 8 * (DY[s] + DY[d]);
+  const at = (u: number, v: number) => {
+    const a = ((u + 0.5) / 16) * (Math.PI / 2), r = v + 0.5;
+    const ex = -r * Math.cos(a), ox = -r * Math.sin(a);
+    return [Math.floor(kx + ex * DX[d] + ox * DX[s]), Math.floor(ky + ex * DY[d] + ox * DY[s])];
+  };
+  const dot = (px: number, py: number) => {
+    if (px >= 0 && py >= 0 && px < TILE && py < TILE) ctx.fillRect(x + px, y + py, 1, 1);
+  };
+  ctx.fillStyle = '#282830';
+  for (let py = 0; py < TILE; py++)
+    for (let px = 0; px < TILE; px++) if (Math.hypot(px + 0.5 - kx, py + 0.5 - ky) < 16) dot(px, py);
+  ctx.fillStyle = '#606878';
+  for (let u = 0; u < 32; u++) for (const v of [1, 14]) dot(...(at(u / 2, v) as [number, number]));
+  // Chevrons, as in drawBelt; what runs over the edge the cells either side draw.
+  ctx.fillStyle = '#f8b800';
+  const shift = Math.floor(frame / 2) % 8;
+  for (let k = -1; k < 3; k++) {
+    const u0 = k * 8 + shift;
+    const [bx, by] = at(u0 + 2, 8);
+    // Square on, facing the way in for the first half of the bend and the way out after.
+    const t = u0 + 2 < 8 ? (s + 2) % 4 : d, n = (t + 1) % 4;
+    for (let dv = -3; dv <= 3; dv++)
+      for (const du of [0, 1]) {
+        const au = 3 - Math.abs(dv) - du - 2;
+        dot(bx + au * DX[t] + dv * DX[n], by + au * DY[t] + dv * DY[n]);
+      }
+  }
 }
 
 /** A warp hole: a dark pit with rings turning in it. */
