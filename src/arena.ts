@@ -163,6 +163,20 @@ export function buildArena(def: ArenaDef, rng: Rng): Layout {
       }
     }),
   );
+  // A warp hole walled in by blocks would be a prison: clear one blocked neighbour.
+  for (let c = 0; c < CELLS; c++) {
+    if (warp[c] < 0) continue;
+    const near = [0, 1, 2, 3]
+      .map((d) => [cellX(c) + DX[d], cellY(c) + DY[d]])
+      .filter(([x, y]) => inside(x, y))
+      .map(([x, y]) => idx(x, y));
+    if (near.some((n) => cells[n] === FLOOR)) continue;
+    const blocked = near.filter((n) => cells[n] === BLOCK);
+    if (!blocked.length) continue;
+    const n = blocked[Math.floor(rng() * blocked.length)];
+    cells[n] = FLOOR;
+    blocks.splice(blocks.indexOf(n), 1);
+  }
   const hidden = new Map<number, ItemKind>();
   // Shuffle, then hide items under the first share of the blocks.
   for (let i = blocks.length - 1; i > 0; i--) {
