@@ -117,12 +117,13 @@ function onTouch(b: TouchButton, down: boolean) {
   if (b.typed) input.typed.push(b.typed);
 }
 
-// Gamepads, in the standard mapping: d-pad or left stick to move, A (or X) bombs, B (or Y)
-// acts, Start pauses, Select quits from pause. Y opens the scores on the title screen.
+// Gamepads, in the standard mapping: d-pad or left stick to move, A (the right face button,
+// or the left one) bombs, B (the bottom one, or the top one) acts, Start pauses, Select quits
+// from pause. The top button opens the scores on the title screen.
 const PAD_BUTTONS: [number, Action][] = [
-  [0, 'bomb'],
+  [1, 'bomb'],
   [2, 'bomb'],
-  [1, 'act'],
+  [0, 'act'],
   [3, 'act'],
   [9, 'start'],
   [8, 'quit'],
