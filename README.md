@@ -20,7 +20,7 @@ Arcade points: 10 a block, 50 a power-up, 1000 a rival, and for a round won 2000
 | Arena | Twist |
 | --- | --- |
 | GARDEN | The classic field: pillars in a grid, blocks everywhere else. |
-| TEMPLE | Two pairs of warp holes: step on one and you come out of the other. |
+| TEMPLE | Two pairs of warp holes: step on one, or kick or throw a bomb into one, and you (or the bomb) come out of the other. |
 | FACTORY | A loop of conveyor belts that carries bombers and bombs along. |
 
 ## Power-ups

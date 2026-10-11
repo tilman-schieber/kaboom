@@ -91,6 +91,8 @@ export interface Bomb {
   passers: Set<number>;
   /** Flying after a throw: from where, to which cell, how far through. */
   air: { x0: number; y0: number; to: number; t: number; n: number; dir: Dir } | null;
+  /** The warp hole it came out of or was laid on; it can't take the bomb until it leaves. */
+  warpFrom: number;
   /** Frame it was laid, for the oldest-first remote. */
   born: number;
 }
@@ -360,7 +362,7 @@ export class World {
     );
     this.bombs.push({
       owner: b.id, x, y, fuse: b.remote ? Infinity : b.curse === 'short' ? SHORT_FUSE : FUSE, range: b.fire,
-      pierce: b.pierce, remote: b.remote, slide: -1, slideSpeed: 0, passers, air: null, born: this.frames,
+      pierce: b.pierce, remote: b.remote, slide: -1, slideSpeed: 0, passers, air: null, warpFrom: c, born: this.frames,
     });
     this.events++;
     sfx.place();
@@ -423,6 +425,7 @@ export class World {
         if (o.state !== 'alive' || Math.abs(o.x - bm.x) >= TILE || Math.abs(o.y - bm.y) >= TILE) bm.passers.delete(id);
       }
       this.slideBomb(bm);
+      this.warpBomb(bm);
     }
   }
 
@@ -446,7 +449,9 @@ export class World {
     if (sign * (pos - centre) < 0 && sign * (np - centre) >= 0) {
       const next = idx(cellX(c) + dx, cellY(c) + dy);
       const turn = this.belt[c] >= 0 && bm.slideSpeed === BELT_SPEED && this.belt[c] !== d;
-      if (turn || this.blockedForBomb(next, bm)) {
+      // Stop dead in the middle of a warp hole that will take it, so it goes through.
+      if (this.warp[c] >= 0 && c !== bm.warpFrom && !this.blockedForBomb(this.warp[c], bm)) np = centre;
+      else if (turn || this.blockedForBomb(next, bm)) {
         np = centre;
         bm.slide = -1;
         if (bm.slideSpeed === KICK_SPEED) sfx.bounce();
@@ -454,6 +459,22 @@ export class World {
     }
     if (dx) bm.x = np;
     else bm.y = np;
+  }
+
+  /** A bomb in the middle of a warp hole comes out of the linked one, still sliding if it was. */
+  private warpBomb(bm: Bomb) {
+    const c = this.bombCell(bm);
+    if (c !== bm.warpFrom) bm.warpFrom = -1;
+    const to = this.warp[c];
+    if (to < 0 || c === bm.warpFrom || bm.x !== mid(cellX(c)) || bm.y !== mid(cellY(c))) return;
+    if (this.blockedForBomb(to, bm)) return;
+    this.sparks(bm.x, bm.y, '#b060f8', 8);
+    bm.x = mid(cellX(to));
+    bm.y = mid(cellY(to));
+    bm.warpFrom = to;
+    this.sparks(bm.x, bm.y, '#b060f8', 8);
+    sfx.throw();
+    if (bm.slide >= 0 && this.blockedForBomb(idx(cellX(to) + DX[bm.slide], cellY(to) + DY[bm.slide]), bm)) bm.slide = -1;
   }
 
   /** Sets off every bomb whose time is up or that a flame has reached, chains included. */
