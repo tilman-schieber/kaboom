@@ -7,12 +7,14 @@ import { World } from './world';
 import { Bot } from './bot';
 import { ARENAS } from './arena';
 import { makeRng } from './rng';
+import { setupHidPad, padAxes } from './hidpad';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 ctx.imageSmoothingEnabled = false;
 
 const touchPanel = setupTouch(onTouch);
+setupHidPad();
 
 function resize() {
   const reserved = touchPanel ? touchPanel.el.offsetHeight + 8 : 0;
@@ -142,7 +144,7 @@ function readPads(): Set<Action>[] {
   return pads.map((pad) => {
     const held = new Set<Action>();
     for (const [i, a] of PAD_BUTTONS) if (pad.buttons[i]?.pressed) held.add(i === 3 && game.phase === 'title' ? 'scores' : a);
-    const [x = 0, y = 0] = pad.axes;
+    const [x = 0, y = 0] = padAxes(pad);
     if (x < -STICK) held.add('left');
     if (x > STICK) held.add('right');
     if (y < -STICK) held.add('up');
