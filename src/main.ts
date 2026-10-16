@@ -1,19 +1,34 @@
 import { Game, Action, Input, PlayerInput } from './game';
 import { render, W, H } from './render';
 import { unlockAudio, music } from './audio';
-import { setupTouch, TouchButton } from './touch';
+import { setupTouch, TouchButton } from 'arcade-kit/touch';
 import { loadSprites } from './sprites';
 import { World } from './world';
 import { Bot } from './bot';
 import { ARENAS } from './arena';
-import { makeRng } from './rng';
-import { setupHidPad, padAxes } from './hidpad';
+import { makeRng } from 'arcade-kit/rng';
+import { setupHidPad, padAxes } from 'arcade-kit/hidpad';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 ctx.imageSmoothingEnabled = false;
 
-const touchPanel = setupTouch(onTouch);
+// On-screen controls for phones and tablets: a d-pad and buttons below the screen, for player 1.
+const TOUCH_ROWS: TouchButton<Action>[][] = [
+  [
+    { id: 'music', label: '♪', a: 'mute' },
+    { id: 'up', label: '▲', a: 'up' },
+    { id: 'start', label: 'START', a: 'start', typed: 'Enter' },
+    { id: 'act', label: 'ACT', a: 'act' },
+  ],
+  [
+    { id: 'left', label: '◀', a: 'left' },
+    { id: 'down', label: '▼', a: 'down' },
+    { id: 'right', label: '▶', a: 'right' },
+    { id: 'bomb', label: 'BOMB', a: 'bomb' },
+  ],
+];
+const touchPanel = setupTouch(TOUCH_ROWS, onTouch);
 setupHidPad();
 
 function resize() {
@@ -79,7 +94,7 @@ const input: Input = { held: new Set(), pressed: new Set(), typed: [], players: 
 const playing = () => game.phase === 'play';
 /** Keys currently down: e.code -> lower-cased e.key at press time (key-up may report a different key). */
 const heldKeys = new Map<string, string>();
-const touchHeld = new Set<TouchButton>();
+const touchHeld = new Set<TouchButton<Action>>();
 
 /** While typing a name, letters are letters. */
 const actionFor = (key: string) => (game.phase === 'entry' ? ARROWS[key] ?? (key === 'enter' ? undefined : KEYS[key]) : KEYS[key]);
@@ -110,7 +125,7 @@ addEventListener('blur', () => {
   if (playing() && !game.paused) input.pressed.add('start');
 });
 
-function onTouch(b: TouchButton, down: boolean) {
+function onTouch(b: TouchButton<Action>, down: boolean) {
   unlockAudio();
   if (!down) return void touchHeld.delete(b);
   touchHeld.add(b);

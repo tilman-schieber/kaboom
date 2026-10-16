@@ -3,7 +3,7 @@
 // get away from. Between dangers it goes for power-ups, blocks to break and its rivals.
 import { World, Bomber, Bomb, Controls, FUSE, FLAME_T } from './world';
 import { Dir, CELLS, SOLID, BLOCK, DX, DY, ITEMS, TILE, idx, cellX, cellY, mid, inside } from './arena';
-import { Rng } from './rng';
+import { Rng } from 'arcade-kit/rng';
 
 const INF = 1e9;
 

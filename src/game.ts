@@ -1,7 +1,7 @@
 import { LEVELS, Level, TABLES, TableId } from './modes';
 import { loadTables, saveTables, rankFor, ScoreEntry, Tables, MAX_SCORES, load, save, fetchGlobal, submitGlobal, flushPending } from './scores';
 import { sfx, music } from './audio';
-import { makeRng, randomSeed, Rng } from './rng';
+import { makeRng, randomSeed, Rng } from 'arcade-kit/rng';
 import { World, Controls, NO_CONTROLS, ROUND_FRAMES } from './world';
 import { Bot } from './bot';
 import { ARENAS, ArenaDef, Dir } from './arena';

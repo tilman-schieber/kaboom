@@ -1,72 +1,17 @@
-// Tiny Web Audio chiptune synth: SFX and a tune of its own for each arena.
+// Tiny Web Audio chiptune synth: SFX and a tune of its own for each arena, on arcade-kit's engine.
+import { arp, audioNow, audioOut, createMusic, midiHz, noise, setVolume, tone, Tune } from 'arcade-kit/audio';
 
-let ctx: AudioContext | null = null;
-let master: GainNode;
-let noiseBuf: AudioBuffer;
+export { unlockAudio } from 'arcade-kit/audio';
 
-export function unlockAudio() {
-  // iOS: play through the silent switch like a media app (Safari 16.4+).
-  const session = (navigator as { audioSession?: { type: string } }).audioSession;
-  if (session && session.type !== 'playback') session.type = 'playback';
-  if (!ctx) {
-    ctx = new AudioContext();
-    master = ctx.createGain();
-    master.gain.value = 0.2;
-    master.connect(ctx.destination);
-    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const d = noiseBuf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  }
-  if (ctx.state === 'suspended') void ctx.resume();
-}
-
-export const midiHz = (m: number) => 440 * 2 ** ((m - 69) / 12);
-
-function tone(freq: number, dur: number, type: OscillatorType, vol: number, at = 0, slideTo?: number) {
-  if (!ctx) return;
-  const t = at || ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const g = ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t);
-  if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-  g.gain.setValueAtTime(vol, t);
-  g.gain.setValueAtTime(vol, t + dur * 0.7);
-  g.gain.linearRampToValueAtTime(0, t + dur);
-  osc.connect(g).connect(master);
-  osc.start(t);
-  osc.stop(t + dur + 0.01);
-}
-
-function noise(dur: number, vol: number, cutoff: number, at = 0, type: BiquadFilterType = 'lowpass', sweepTo?: number) {
-  if (!ctx) return;
-  const t = at || ctx.currentTime;
-  const src = ctx.createBufferSource();
-  src.buffer = noiseBuf;
-  const f = ctx.createBiquadFilter();
-  f.type = type;
-  f.frequency.setValueAtTime(cutoff, t);
-  if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(f).connect(g).connect(master);
-  src.start(t, Math.random() * 0.5);
-  src.stop(t + dur);
-}
-
-function arp(notes: number[], step: number, vol = 0.25, type: OscillatorType = 'square') {
-  if (!ctx) return;
-  const t = ctx.currentTime;
-  notes.forEach((n, i) => n && tone(midiHz(n), step, type, vol, t + i * step));
-}
+setVolume(0.2);
 
 /** Skips a sound already played this many seconds ago, so rapid fire doesn't pile up. */
 const last: Record<string, number> = {};
 function every(key: string, gap: number) {
-  if (!ctx) return false;
-  if (ctx.currentTime - (last[key] ?? -1) < gap) return false;
-  last[key] = ctx.currentTime;
+  const now = audioNow();
+  if (now === null) return false;
+  if (now - (last[key] ?? -1) < gap) return false;
+  last[key] = now;
   return true;
 }
 
@@ -88,16 +33,18 @@ export const sfx = {
   curse: () => arp([66, 65, 64, 63, 62], 0.05, 0.16, 'sawtooth'),
   burn: () => every('burn', 0.05) && noise(0.15, 0.12, 4000, 0, 'bandpass', 800),
   die: () => {
-    if (!ctx) return;
-    for (let k = 0; k < 6; k++) tone(880 - k * 110, 0.1, 'square', 0.15, ctx.currentTime + k * 0.07, 440 - k * 60);
+    const t = audioNow();
+    if (t === null) return;
+    for (let k = 0; k < 6; k++) tone(880 - k * 110, 0.1, 'square', 0.15, t + k * 0.07, 440 - k * 60);
   },
   ready: () => tone(660, 0.12, 'square', 0.16),
   go: () => tone(1320, 0.3, 'square', 0.18),
   hurry: () => {
-    if (!ctx) return;
+    const t = audioNow();
+    if (t === null) return;
     for (let k = 0; k < 4; k++) {
-      tone(880, 0.12, 'square', 0.16, ctx.currentTime + k * 0.3);
-      tone(660, 0.12, 'square', 0.12, ctx.currentTime + k * 0.3 + 0.15);
+      tone(880, 0.12, 'square', 0.16, t + k * 0.3);
+      tone(660, 0.12, 'square', 0.12, t + k * 0.3 + 0.15);
     }
   },
   slam: () => every('slam', 0.03) && noise(0.12, 0.3, 900, 0, 'lowpass', 100),
@@ -112,15 +59,7 @@ export const sfx = {
 // A tune for each arena, a loop of sixteenths written out as data: a melody,
 // a chord a bar, and parts that come in as intensity (1-5) rises over the round.
 
-interface Tune {
-  name: string;
-  /** Seconds per unit at tempo 1. */
-  unit: number;
-  length: number;
-  /** Schedule whatever sounds at unit i (already wrapped into the loop). */
-  play(i: number, t: number, lv: number, tr: number, unitSec: number): void;
-}
-
+// A drum kit of its own: arcade-kit's perc has a different snare and kick, and no toms or claps.
 const perc = {
   snare: (t: number, vol: number) => noise(0.08, vol, 5000, t, 'highpass'),
   hat: (t: number, vol: number) => noise(0.03, vol, 9000, t, 'highpass'),
@@ -160,20 +99,22 @@ interface Opts {
 
 const waves: Partial<Record<Wave, PeriodicWave>> = {};
 /** A pulse wave of the given duty: 'pulse' 25%, 'thin' 12.5%. */
-function pulseWave(duty: number) {
+function pulseWave(ctx: AudioContext, duty: number) {
   const re = new Float32Array(32), im = new Float32Array(32);
   for (let n = 1; n < 32; n++) {
     re[n] = Math.sin(2 * Math.PI * n * duty) / n;
     im[n] = (1 - Math.cos(2 * Math.PI * n * duty)) / n;
   }
-  return ctx!.createPeriodicWave(re, im);
+  return ctx.createPeriodicWave(re, im);
 }
 
 /** A music note at MIDI m: like tone(), with a few more ways to shape it. */
 function voice(m: number, dur: number, type: Wave, vol: number, t: number, o: Opts = {}) {
-  if (!ctx || !(dur > 0)) return;
+  const out = audioOut();
+  if (!out || !(dur > 0)) return;
+  const { ctx, master } = out;
   const osc = ctx.createOscillator();
-  if (type === 'pulse' || type === 'thin') osc.setPeriodicWave((waves[type] ??= pulseWave(type === 'pulse' ? 0.25 : 0.125)));
+  if (type === 'pulse' || type === 'thin') osc.setPeriodicWave((waves[type] ??= pulseWave(ctx, type === 'pulse' ? 0.25 : 0.125)));
   else osc.type = type;
   osc.frequency.setValueAtTime(midiHz(m), t);
   if (o.det) osc.detune.setValueAtTime(o.det, t);
@@ -357,76 +298,11 @@ const FACTORY: Tune = {
 
 export const TUNES = [GARDEN, TEMPLE, FACTORY];
 
-let musicOn = true;
-let playing = false;
-let tune = 0;
-let unit = 0;
-let nextTime = 0;
-let timer: number | undefined;
-let transpose = 0;
-let intensity = 0;
-let tempo = 1;
+const player = createMusic(TUNES);
 
-function schedule() {
-  if (!ctx) return;
-  const tn = TUNES[tune];
-  while (nextTime < ctx.currentTime + 0.12) {
-    const u = tn.unit / tempo;
-    tn.play(unit % tn.length, nextTime, intensity, transpose, u);
-    unit++;
-    nextTime += u;
-  }
-}
-
-export const music = {
-  /** Start (or keep playing) a tune; switching tunes starts it from the top. */
-  play(which = tune, restart = false) {
-    if (which !== tune || restart) {
-      this.halt();
-      tune = which;
-      unit = 0;
-    }
-    playing = true;
-    if (!ctx || !musicOn || timer !== undefined) return;
-    nextTime = ctx.currentTime + 0.05;
-    timer = window.setInterval(schedule, 25);
-  },
-  resume() {
-    if (playing) this.play();
-  },
-  stop() {
-    playing = false;
-    this.halt();
-  },
-  halt() {
-    if (timer !== undefined) clearInterval(timer);
-    timer = undefined;
-  },
+export const music = Object.assign(player, {
+  /** Shift the tunes by this many semitones, kept within a tritone. */
   setKey(semis: number) {
-    transpose = ((semis + 18) % 12) - 6;
+    player.setTranspose(((semis + 18) % 12) - 6);
   },
-  setIntensity(lv: number) {
-    intensity = lv;
-  },
-  setTempo(mult: number) {
-    tempo = mult;
-  },
-  toggle() {
-    musicOn = !musicOn;
-    if (!musicOn) this.halt();
-    else if (playing) this.play();
-    return musicOn;
-  },
-  set enabled(on: boolean) {
-    if (on !== musicOn) this.toggle();
-  },
-  get enabled() {
-    return musicOn;
-  },
-  get running() {
-    return timer !== undefined;
-  },
-  get tune() {
-    return tune;
-  },
-};
+});

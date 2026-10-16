@@ -4,11 +4,12 @@ import { ARENAS, COLS, ROWS, TILE, CELLS, SOLID, BLOCK, ITEMS, DX, DY, cellX, ce
 import { LEVELS } from './modes';
 import { MAX_SCORES } from './scores';
 import { HELP_PAGES, wrapText } from './help';
-import { drawText, drawTextCentered, drawTextScaled, drawTextShadow, textWidth } from './font';
-import { W, H, WHITE, RED, GREY, LIGHT, DARK, YELLOW, GOLD, Ctx, drawBox, pad } from './draw';
+import { drawText, drawTextCentered, drawTextScaled, drawTextShadow, textWidth } from 'arcade-kit/font';
+import { WHITE, RED, GREY, LIGHT, DARK, YELLOW, GOLD, Ctx, drawBox, pad } from 'arcade-kit/draw';
 import { spr, anim, has, flash, drawAt, BOMBER_COLORS } from './sprites';
 
-export { W, H };
+export const W = 256;
+export const H = 224;
 
 /** Where the arena sits on the screen: below the HUD, centred. */
 const AX = 8;

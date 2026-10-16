@@ -1,6 +1,6 @@
 // One round in an arena: the bombers, their bombs and flames, the blocks and power-ups,
 // the clock and, when it runs out, the walls closing in.
-import { Rng } from './rng';
+import { Rng } from 'arcade-kit/rng';
 import { sfx } from './audio';
 import {
   ArenaDef, Layout, Dir, ItemKind, ITEMS, COLS, ROWS, TILE, CELLS, FLOOR, SOLID, BLOCK, DX, DY,

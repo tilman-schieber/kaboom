@@ -1,6 +1,6 @@
 // The arenas: a 15x13 grid of 16px cells, drawn from a map per theme, with soft blocks
 // scattered over the free cells and power-ups hidden under some of them.
-import { Rng } from './rng';
+import { Rng } from 'arcade-kit/rng';
 
 export const COLS = 15;
 export const ROWS = 13;
